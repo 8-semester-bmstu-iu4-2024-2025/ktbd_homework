@@ -34,7 +34,7 @@ if (isset($_GET['product_id'])) {
     // Генерация PDF
     $pdf = new FPDF();
     $pdf->AddPage();
-	$pdf->Image('a.png', 0, 0, 210, 200);
+	$pdf->Image('images/a.png', 0, 0, 210, 200);
     $pdf->SetFont('Arial', 'B', 16);
 
 $leftMargin = 37.5;
@@ -71,29 +71,39 @@ ob_end_flush(); // Освобождаем буфер
 ?>
 
 <html>
+
 <head>
     <title>Маршрутная карта</title>
     <style>
-        body { font-family: Arial; margin: 20px; }
-        select, input[type="submit"] { padding: 5px; }
+    body {
+        font-family: Arial;
+        margin: 20px;
+    }
+
+    select,
+    input[type="submit"] {
+        padding: 5px;
+    }
     </style>
 </head>
+
 <body>
     <?php require('index.php'); ?>
-    
+
     <h2>Выберите изделие</h2>
     <form method="get">
         <select name="product_id" required>
             <?php foreach ($products as $prod) { ?>
-                <option value="<?php echo $prod['PRDS_ID']; ?>">
-                    <?php echo htmlspecialchars($prod['PRDS_NAME']); ?>
-                </option>
+            <option value="<?php echo $prod['PRDS_ID']; ?>">
+                <?php echo htmlspecialchars($prod['PRDS_NAME']); ?>
+            </option>
             <?php } ?>
         </select>
         <input type="submit" value="Сформировать PDF">
     </form>
-	<div class="footer-bumper">
-    Система управления производством © <?php echo date('Y'); ?>
-</div>
+    <div class="footer-bumper">
+        Система управления производством © <?php echo date('Y'); ?>
+    </div>
 </body>
+
 </html>
