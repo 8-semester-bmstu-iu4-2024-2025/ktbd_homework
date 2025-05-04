@@ -12,4 +12,4 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./labs:/var/www/html
+      - ./www:/var/www/html
