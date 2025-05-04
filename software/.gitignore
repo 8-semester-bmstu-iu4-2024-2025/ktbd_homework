@@ -1,0 +1,9 @@
+#folders
+.vscode/
+.data/
+.tmp/
+
+# filetypes
+*.log
+*.txt
+*.tmp

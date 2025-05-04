@@ -1,0 +1,15 @@
+services:
+  oracledb:
+    build:
+      dockerfile: oracle/Dockerfile
+    ports:
+      - "1521:1521"
+    volumes:
+      - ./.data:/opt/oracle/oradata
+  php:
+    build:
+      dockerfile: php/Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./labs:/var/www/html
