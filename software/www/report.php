@@ -2,7 +2,7 @@
 ob_start();
 
 require_once('init.php');
-require('fpdf.php');
+require('FPDF/fpdf.php');
 check_auth();
 
 // Получение списка продуктов
@@ -17,7 +17,7 @@ if (isset($_GET['product_id'])) {
         ob_end_clean();
     }
 
-    $product_id = (int)$_GET['product_id'];
+    $product_id = (int) $_GET['product_id'];
     $sql = "SELECT p.*, eq.eqpt_name, d.docs_name 
             FROM products p
             LEFT JOIN equipment eq ON p.prds_eqpt_id = eq.eqpt_id
@@ -34,24 +34,24 @@ if (isset($_GET['product_id'])) {
     // Генерация PDF
     $pdf = new FPDF();
     $pdf->AddPage();
-	$pdf->Image('images/a.png', 0, 0, 210, 200);
+    $pdf->Image('images/a.png', 0, 0, 210, 200);
     $pdf->SetFont('Arial', 'B', 16);
 
-$leftMargin = 37.5;
+    $leftMargin = 37.5;
     // Данные изделия
-	    $pdf->SetX(10);
+    $pdf->SetX(10);
     $pdf->SetFont('Arial', '', 12);
     $pdf->Cell(50, 45, 'Izdelie:', 0, 0);
     $pdf->Cell(0, 45, $product['PRDS_NAME'], 0, 1);
-	    $pdf->SetX(130);
+    $pdf->SetX(130);
     $pdf->Cell(50, 10, 'Kolichectvo:', 0, 0);
     $pdf->Cell(0, 10, $product['PRDS_QUANTITY'], 0, 1);
-	    $pdf->SetX(10);
+    $pdf->SetX(10);
     $pdf->Cell(50, 47, 'Type TP:', 0, 0);
     $pdf->Cell(0, 47, $product['PRDS_TP_TYPE'], 0, 1);
 
     // Этапы
-	 
+
     $pdf->SetFont('Arial', 'B', 14);
     $stages = array(
         '1. Podgotovka komponentov',
@@ -60,7 +60,7 @@ $leftMargin = 37.5;
         '4. Ypakovka'
     );
     foreach ($stages as $stage) {
-		    $pdf->SetX(10);
+        $pdf->SetX(10);
         $pdf->Cell(0, 19, $stage, 0, 1);
     }
 
@@ -75,15 +75,15 @@ ob_end_flush(); // Освобождаем буфер
 <head>
     <title>Маршрутная карта</title>
     <style>
-    body {
-        font-family: Arial;
-        margin: 20px;
-    }
+        body {
+            font-family: Arial;
+            margin: 20px;
+        }
 
-    select,
-    input[type="submit"] {
-        padding: 5px;
-    }
+        select,
+        input[type="submit"] {
+            padding: 5px;
+        }
     </style>
 </head>
 
@@ -94,9 +94,9 @@ ob_end_flush(); // Освобождаем буфер
     <form method="get">
         <select name="product_id" required>
             <?php foreach ($products as $prod) { ?>
-            <option value="<?php echo $prod['PRDS_ID']; ?>">
-                <?php echo htmlspecialchars($prod['PRDS_NAME']); ?>
-            </option>
+                <option value="<?php echo $prod['PRDS_ID']; ?>">
+                    <?php echo htmlspecialchars($prod['PRDS_NAME']); ?>
+                </option>
             <?php } ?>
         </select>
         <input type="submit" value="Сформировать PDF">

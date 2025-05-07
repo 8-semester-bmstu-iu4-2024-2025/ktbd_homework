@@ -10,7 +10,8 @@ if (!session_id()) {
 require_once('oracle.php'); // Подключение БД
 
 // Проверка авторизации
-function check_auth() {
+function check_auth()
+{
     if (!isset($_SESSION['user_id'])) {
         header("Location: login.php");
         exit;
