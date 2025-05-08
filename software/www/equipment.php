@@ -1,29 +1,31 @@
 ﻿<?php
-require_once('init.php');
-check_auth();
-
-if (isset($_POST['add_equipment'])) {
-    $sql = "INSERT INTO equipment (eqpt_name, eqpt_type) VALUES (:name, :type)";
-    ora_query($sql, array(
-        ':name' => $_POST['name'],
-        ':type' => $_POST['type']
-    ));
-    ora_query("COMMIT");
-    header("Location: equipment.php");
-    exit;
+if (!session_id()) {
+    session_start();
+}
+if (!isset($_SESSION['empl_job'])) {
+    header(header: "Location: index.php");
+}
+require("oracle.php");
+$oracle_connection = ora_connect();
+if (($_SERVER['REQUEST_METHOD'] == 'POST') && isset($_POST['add_equipment'])) {
+    $str = "INSERT INTO equipment (eqpt_name, eqpt_type) VALUES (:name, :type)";
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":name", $_POST['name'], -1);
+    oci_bind_by_name($sql, ":type", $_POST['type'], -1);
+    oci_execute($sql, OCI_COMMIT_ON_SUCCESS);
 }
 
-if (isset($_GET['delete'])) {
-    $sql = "DELETE FROM equipment WHERE eqpt_id = :id";
-    ora_query($sql, array(':id' => (int) $_GET['delete']));
-    ora_query("COMMIT");
-    header("Location: equipment.php");
-    exit;
+if (($_SERVER['REQUEST_METHOD'] == 'GET') && isset($_GET['delete'])) {
+    $str = "DELETE FROM equipment WHERE eqpt_id = :id";
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":id", $_GET['delete'], -1);
+    oci_execute($sql, OCI_COMMIT_ON_SUCCESS);
 }
 
-$sql = "SELECT eqpt_id, eqpt_name, eqpt_type FROM equipment";
-$stid = ora_query($sql);
-$equipment = ora_fetch_all($stid);
+$str = "SELECT eqpt_id, eqpt_name, eqpt_type FROM equipment";
+$sql = oci_parse($oracle_connection, $str);
+oci_execute($sql, OCI_DEFAULT);
+ora_disconnect();
 ?>
 
 <html>
@@ -53,7 +55,7 @@ $equipment = ora_fetch_all($stid);
             <th>Тип</th>
             <th>Действия</th>
         </tr>
-        <?php foreach ($equipment as $item): ?>
+        <?php while ($item = oci_fetch_array($sql, OCI_BOTH)) { ?>
             <tr>
                 <td><?php echo htmlspecialchars($item['EQPT_ID']); ?></td>
                 <td><?php echo htmlspecialchars($item['EQPT_NAME']); ?></td>
@@ -63,7 +65,7 @@ $equipment = ora_fetch_all($stid);
                         onclick="return confirm('Удалить оборудование?')">Удалить</a>
                 </td>
             </tr>
-        <?php endforeach; ?>
+        <?php } ?>
     </table>
 
     <h2>Добавить оборудование</h2>
@@ -71,14 +73,14 @@ $equipment = ora_fetch_all($stid);
         Название: <input type="text" name="name"><br>
         Тип:
         <select name="type">
-            <option value="Основное">Основное</option>
-            <option value="Вспомогательное">Вспомогательное</option>
-            <option value="Контрольное">Контрольное</option>
+            <option value="Main">Основное</option>
+            <option value="Help">Вспомогательное</option>
+            <option value="Control">Контрольное</option>
         </select><br>
         <input type="submit" name="add_equipment" value="Добавить">
     </form>
     <div class="footer-bumper">
-        Система управления производством © <?php echo date('Y'); ?>
+        Система управления производством © 2025
     </div>
 </body>
 

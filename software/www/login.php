@@ -1,70 +1,45 @@
 ﻿<?php
-if (session_id()) {
-    session_destroy();
+if (!session_id()) {
+    session_start();
 }
-session_start();
+session_unset();
+session_destroy();
+
 require_once('oracle.php');
 
+if (($_SERVER['REQUEST_METHOD'] == 'POST') && isset($_POST['username']) && isset($_POST['password'])) {
+    $oracle_connection = ora_connect();
+    $str = "SELECT empl_id, empl_name, empl_job FROM employees
+            WHERE empl_name = :username AND empl_pass = :pass";
 
-if (isset($_POST['login'])) {
-    $sql = "SELECT empl_id, empl_name, empl_job FROM employeess 
-            WHERE empl_name = :name AND empl_pass = :pass";
-
-    $stid = ora_query($sql, array(
-        ':name' => $_POST['username'],
-        ':pass' => $_POST['password']
-    ));
-
-    if (oci_execute($stid, $row, OCI_ASSOC + OCI_RETURN_NULLS)) {
-        $_SESSION['user_id'] = $row['EMPL_ID'];
-        $_SESSION['username'] = $row['EMPL_NAME'];
-        $_SESSION['role'] = $row['EMPL_JOB'];
-        header("Location: products.php");
-        exit;
-    } else {
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":username", $_POST['username'], -1);
+    oci_bind_by_name($sql, ":pass", $_POST['password'], -1);
+    oci_execute($sql, OCI_DEFAULT);
+    $emp = oci_fetch_array($sql, OCI_BOTH);
+    if (!$emp) {
         $error = "Неверный логин или пароль";
+        ora_disconnect();
+    } else {
+        session_start();
+        oci_fetch($sql);
+        ora_disconnect();
+        $_SESSION['empl_id'] = $emp['empl_id'];
+        $_SESSION['empl_name'] = $emp['empl_name'];
+        $_SESSION['empl_job'] = $emp['EMPL_JOB'];
+        header(header: "Location: index.php");
+        exit;
     }
 }
 ?>
 
 <html>
 
-<head>
-    <title>Авторизация</title>
-    <style type="text/css">
-        body {
-            font-family: Arial;
-        }
-
-        .login-form {
-            width: 300px;
-            margin: 50px auto;
-        }
-
-        .form-group {
-            margin-bottom: 10px;
-        }
-
-        input {
-            padding: 3px;
-        }
-
-        .footer-bumper {
-            border-top: 2px solid #4285f4;
-            margin-top: 20px;
-            padding-top: 10px;
-            color: #666;
-            text-align: center;
-            font-size: 12px;
-        }
-    </style>
-</head>
-
 <body>
     <div class="login-form">
         <?php if (isset($error))
             echo "<p style='color:red'>$error</p>"; ?>
-        <form method="post">
+        <form method="POST">
             <div class="form-group">
                 Логин: <input type="text" name="username">
             </div>
@@ -75,7 +50,7 @@ if (isset($_POST['login'])) {
         </form>
     </div>
     <div class="footer-bumper">
-        Система управления производством © <?php echo date('Y'); ?>
+        Система управления производством © 2025
     </div>
 </body>
 

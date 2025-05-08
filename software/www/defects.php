@@ -1,39 +1,40 @@
 ﻿<?php
-require_once('init.php');
-check_auth();
-
+if (!session_id()) {
+    session_start();
+}
+if (!isset($_SESSION['empl_job'])) {
+    header(header: "Location: index.php");
+}
+require("oracle.php");
+$oracle_connection = ora_connect();
 // Добавление дефекта
-if (isset($_POST['add_defect'])) {
-    $sql = "INSERT INTO defect (dfct_name, dfct_type, dfct_desc, dfct_date) 
+if (($_SERVER['REQUEST_METHOD'] == 'POST') && isset($_POST['add_defect'])) {
+    $str = "INSERT INTO defects (dfct_name, dfct_type, dfct_desc, dfct_date) 
             VALUES (:name, :dfct_type, :df_desc, TO_DATE(:d_date, 'DD.MM.YY'))";
-
-    ora_query($sql, array(
-        ':name' => $_POST['name'],
-        ':dfct_type' => $_POST['dfct_type'],
-        ':df_desc' => $_POST['description'],
-        ':d_date' => $_POST['d_date']
-    ));
-    ora_query("COMMIT");
-    header("Location: defect.php");
-    exit;
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":name", $_POST['name'], -1);
+    oci_bind_by_name($sql, ":dfct_type", $_POST['dfct_type'], -1);
+    oci_bind_by_name($sql, ":df_desc", $_POST['description'], -1);
+    oci_bind_by_name($sql, ":d_date", $_POST['d_date'], -1);
+    oci_execute($sql, OCI_COMMIT_ON_SUCCESS);
 }
 
 // Удаление дефекта
-if (isset($_GET['delete'])) {
-    $sql = "DELETE FROM defect WHERE dfct_id = :id";
-    ora_query($sql, array(':id' => (int) $_GET['delete']));
-    ora_query("COMMIT");
-    header("Location: defect.php");
-    exit;
+if (($_SERVER['REQUEST_METHOD'] == 'GET') && isset($_GET['delete'])) {
+    $str = "DELETE FROM defects WHERE dfct_id = :id";
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":id", $_GET['delete'], -1);
+    oci_execute($sql, OCI_COMMIT_ON_SUCCESS);
 }
 
 // Получение списка дефектов
-$sql = "SELECT dfct_id, dfct_name, dfct_type, dfct_desc, 
+$str = "SELECT dfct_id, dfct_name, dfct_type, dfct_desc, 
                TO_CHAR(dfct_date, 'DD.MM.YY') as dfct_date 
-        FROM defect
+        FROM defects
 	ORDER BY dfct_id";
-$stid = ora_query($sql);
-$defects = ora_fetch_all($stid);
+$sql = oci_parse($oracle_connection, $str);
+oci_execute($sql, OCI_DEFAULT);
+ora_disconnect();
 ?>
 
 <html>
@@ -65,7 +66,7 @@ $defects = ora_fetch_all($stid);
             <th>Дата</th>
             <th>Действия</th>
         </tr>
-        <?php foreach ($defects as $defect): ?>
+        <?php while ($defect = oci_fetch_array($sql, OCI_BOTH)) { ?>
             <tr>
                 <td><?php echo htmlspecialchars($defect['DFCT_ID']); ?></td>
                 <td><?php echo htmlspecialchars($defect['DFCT_NAME']); ?></td>
@@ -77,7 +78,7 @@ $defects = ora_fetch_all($stid);
                         onclick="return confirm('Удалить дефект?')">Удалить</a>
                 </td>
             </tr>
-        <?php endforeach; ?>
+        <?php } ?>
     </table>
 
     <h2>Добавить дефект</h2>
@@ -106,7 +107,7 @@ $defects = ora_fetch_all($stid);
         <input type="submit" name="add_defect" value="Добавить">
     </form>
     <div class="footer-bumper">
-        Система управления производством © <?php echo date('Y'); ?>
+        Система управления производством © 2025
     </div>
 </body>
 

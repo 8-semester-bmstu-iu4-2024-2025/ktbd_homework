@@ -1,76 +1,53 @@
 ﻿<?php
-require_once('init.php');
-check_auth();
-
+if (!session_id()) {
+    session_start();
+}
+if (!isset($_SESSION['empl_job'])) {
+    header(header: "Location: index.php");
+}
+require("oracle.php");
+$oracle_connection = ora_connect();
 // Добавление
-if (isset($_POST['add_product'])) {
-    $sql = "INSERT INTO products (prds_name, prds_stat, prds_empl_id, prds_eqpt_id, prds_docs_id, prds_rejc_id, prds_quantity, prds_tp_type) 
-            VALUES (:name, :status, :empl_id, :eqpt_id, :docs_id, :rejc_id, :quantity, :tp_type)";
-    ora_query($sql, array(
-        ':name' => $_POST['name'],
-        ':status' => $_POST['status'],
-        ':empl_id' => $_SESSION['user_id'],
-        ':eqpt_id' => !empty($_POST['eqpt_id']) ? $_POST['eqpt_id'] : null,
-        ':docs_id' => !empty($_POST['docs_id']) ? $_POST['docs_id'] : null,
-        ':rejc_id' => !empty($_POST['rejc_id']) ? $_POST['rejc_id'] : null,
-        ':quantity' => $_POST['quantity'],
-        ':tp_type' => $_POST['tp_type'],
-    ));
-    ora_query("COMMIT");
-    header("Location: products.php");
-    exit;
+if (($_SERVER['REQUEST_METHOD'] == 'POST') && isset($_POST['add_product'])) {
+
+    $str = "INSERT INTO products (prds_name, prds_stat, prds_empl_id, prds_eqpt_id, prds_docs_id, prds_quantity, prds_tp_type) 
+            VALUES (:name, :status, :empl_id, :eqpt_id, :docs_id, :quantity, :tp_type)";
+
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":name", $_POST['name'], -1);
+    oci_bind_by_name($sql, ":status", $_POST['status'], -1);
+    oci_bind_by_name($sql, ":empl_id", $_POST['empl_id'], -1);
+    oci_bind_by_name($sql, ":eqpt_id", $_POST['eqpt_id'], -1);
+    oci_bind_by_name($sql, ":docs_id", $_POST['docs_id'], -1);
+    oci_bind_by_name($sql, ":quantity", $_POST['quantity'], -1);
+    oci_bind_by_name($sql, ":tp_type", $_POST['tp_type'], -1);
+    oci_execute($sql, OCI_COMMIT_ON_SUCCESS);
 }
 
 // Удаление
-if (isset($_GET['delete'])) {
-    $sql = "DELETE FROM products WHERE prds_id = :id";
-    ora_query($sql, array(':id' => (int) $_GET['delete']));
-    ora_query("COMMIT");
-
-    header("Location: products.php");
-    exit;
+if (($_SERVER['REQUEST_METHOD'] == 'GET') && isset($_GET['delete'])) {
+    $str = "DELETE FROM products WHERE prds_id = :id";
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":id", $_GET['delete'], -1);
+    oci_execute($sql, OCI_COMMIT_ON_SUCCESS);
 }
 
 // Получение данных
-$sql = "SELECT p.prds_id, p.prds_name, p.prds_stat, p.prds_quantity, p.prds_tp_type,
+$str = "SELECT p.prds_id, p.prds_name, p.prds_stat, p.prds_quantity, p.prds_tp_type,
                e.empl_name, eq.eqpt_name, d.docs_name, 
-               r.rejc_type, df.dfct_name as defect_name
+               df.dfct_name as defect_name
         FROM products p
-        LEFT JOIN employeess e ON p.prds_empl_id = e.empl_id
+        LEFT JOIN employees e ON p.prds_empl_id = e.empl_id
         LEFT JOIN equipment eq ON p.prds_eqpt_id = eq.eqpt_id
         LEFT JOIN documents d ON p.prds_docs_id = d.docs_id
-        LEFT JOIN rejections r ON p.prds_rejc_id = r.rejc_id
-        LEFT JOIN defect df ON r.rejc_dfct_id = df.dfct_id
+        LEFT JOIN defects df ON p.prds_dfct_id = df.dfct_id
         ORDER BY p.prds_id";
-
-$stid = ora_query($sql);
-$products = ora_fetch_all($stid);
+$sql = oci_parse($oracle_connection, $str);
+oci_execute($sql, OCI_DEFAULT);
+ora_disconnect();
 ?>
 
 <html>
-
-<head>
-    <title>Продукция</title>
-    <style type="text/css">
-        body {
-            font-family: Arial;
-            margin: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 10px;
-        }
-
-        .data-table {
-            width: 100%;
-        }
-
-        .data-table th {
-            background-color: #f2f2f2;
-        }
-    </style>
-</head>
-
 <body>
     <?php require_once('index.php'); ?>
 
@@ -88,7 +65,7 @@ $products = ora_fetch_all($stid);
             <th>Брак (тип/дефект)</th>
             <th>Действия</th>
         </tr>
-        <?php foreach ($products as $product): ?>
+        <?php while ($product = oci_fetch_array($sql, OCI_BOTH)) { ?>
             <tr>
                 <td><?= htmlspecialchars($product['PRDS_ID']) ?></td>
                 <td><?= htmlspecialchars($product['PRDS_NAME']) ?></td>
@@ -98,19 +75,11 @@ $products = ora_fetch_all($stid);
                 <td><?= htmlspecialchars($product['EMPL_NAME']) ?></td>
                 <td><?= htmlspecialchars(isset($product['EQPT_NAME']) ? $product['EQPT_NAME'] : '—') ?></td>
                 <td><?= htmlspecialchars(isset($product['DOCS_NAME']) ? $product['DOCS_NAME'] : '—') ?></td>
-                <td>
-                    <?php if (!empty($product['REJC_TYPE'])): ?>
-                        <?= htmlspecialchars($product['REJC_TYPE']) ?>
-                        <?= !empty($product['DEFECT_NAME']) ? "({$product['DEFECT_NAME']})" : '' ?>
-                    <?php else: ?>
-                        —
-                    <?php endif; ?>
-                </td>
-                <td>
-                    <a href="?delete=<?= $product['PRDS_ID'] ?>" onclick="return confirm('Удалить продукцию?')">Удалить</a>
+                <td><?= htmlspecialchars(isset($product['DEFECT_NAME']) ? $product['DEFECT_NAME'] : '—') ?></td>
+                <td><a href="?delete=<?= $product['PRDS_ID'] ?>" onclick="return confirm('Удалить продукцию?')">Удалить</a>
                 </td>
             </tr>
-        <?php endforeach; ?>
+        <?php } ?>
     </table>
 
     <h2>Добавить продукцию</h2>
@@ -121,10 +90,10 @@ $products = ora_fetch_all($stid);
         <div class="form-group">
             <label>Статус:
                 <select name="status" required>
-                    <option value="В производстве">В производстве</option>
-                    <option value="Готово">Готово</option>
-                    <option value="На проверке">На проверке</option>
-                    <option value="Брак">Брак</option>
+                    <option value="Active">В производстве</option>
+                    <option value="Done">Готово</option>
+                    <option value="Checking">На проверке</option>
+                    <option value="Defected">Брак</option>
                 </select>
             </label>
         </div>
@@ -143,17 +112,35 @@ $products = ora_fetch_all($stid);
                 </select>
             </label>
         </div>
-
-
+        <div class="form-group">
+            <label>Ответственный:
+                <select name="empl_id">
+                    <option value="">-- Не выбрано --</option>
+                    <?php
+                    $oracle_connection = ora_connect();
+                    $str = "SELECT empl_id, empl_name FROM employees";
+                    $sql = oci_parse($oracle_connection, $str);
+                    oci_execute($sql, OCI_DEFAULT);
+                    ora_disconnect();
+                    while ($item = oci_fetch_array($sql, OCI_BOTH)) { ?>
+                        <option value="<?= $item['EMPL_ID'] ?>"><?= htmlspecialchars($item['EMPL_NAME']) ?></option>
+                    <?php } ?>
+                </select>
+            </label>
+        </div>
         <div class="form-group">
             <label>Оборудование:
                 <select name="eqpt_id">
                     <option value="">-- Не выбрано --</option>
                     <?php
-                    $eqpt = ora_fetch_all(ora_query("SELECT eqpt_id, eqpt_name FROM equipment"));
-                    foreach ($eqpt as $item): ?>
+                    $oracle_connection = ora_connect();
+                    $str = "SELECT eqpt_id, eqpt_name FROM equipment";
+                    $sql = oci_parse($oracle_connection, $str);
+                    oci_execute($sql, OCI_DEFAULT);
+                    ora_disconnect();
+                    while ($item = oci_fetch_array($sql, OCI_BOTH)) { ?>
                         <option value="<?= $item['EQPT_ID'] ?>"><?= htmlspecialchars($item['EQPT_NAME']) ?></option>
-                    <?php endforeach; ?>
+                    <?php } ?>
                 </select>
             </label>
         </div>
@@ -162,25 +149,14 @@ $products = ora_fetch_all($stid);
                 <select name="docs_id">
                     <option value="">-- Не выбрано --</option>
                     <?php
-                    $docs = ora_fetch_all(ora_query("SELECT docs_id, docs_name FROM documents"));
-                    foreach ($docs as $doc): ?>
+                    $oracle_connection = ora_connect();
+                    $str = "SELECT docs_id, docs_name FROM documents";
+                    $sql = oci_parse($oracle_connection, $str);
+                    oci_execute($sql, OCI_DEFAULT);
+                    ora_disconnect();
+                    while ($doc = oci_fetch_array($sql, OCI_BOTH)) { ?>
                         <option value="<?= $doc['DOCS_ID'] ?>"><?= htmlspecialchars($doc['DOCS_NAME']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-        </div>
-        <div class="form-group">
-            <label>Брак:
-                <select name="rejc_id">
-                    <option value="">-- Не выбрано --</option>
-                    <?php
-                    $rej = ora_fetch_all(ora_query("SELECT r.rejc_id, r.rejc_type, d.dfct_name 
-                                              FROM rejections r LEFT JOIN defect d ON r.rejc_dfct_id = d.dfct_id"));
-                    foreach ($rej as $rj): ?>
-                        <option value="<?= $rj['REJC_ID'] ?>">
-                            <?= htmlspecialchars($rj['REJC_TYPE']) ?> (<?= htmlspecialchars($rj['DFCT_NAME']) ?>)
-                        </option>
-                    <?php endforeach; ?>
+                    <?php } ?>
                 </select>
             </label>
         </div>
@@ -188,7 +164,7 @@ $products = ora_fetch_all($stid);
     </form>
 
     <div class="footer-bumper">
-        Система управления производством © <?php echo date('Y'); ?>
+        Система управления производством © 2025
     </div>
 </body>
 

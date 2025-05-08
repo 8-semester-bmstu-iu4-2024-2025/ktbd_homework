@@ -12,6 +12,6 @@ services:
       dockerfile: php/Dockerfile
       context: .
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
       - ./www:/var/www/html

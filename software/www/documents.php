@@ -1,39 +1,40 @@
 ﻿<?php
-require_once('init.php');
-check_auth();
-
+if (!session_id()) {
+    session_start();
+}
+if (!isset($_SESSION['empl_job'])) {
+    header(header: "Location: index.php");
+}
+require("oracle.php");
+$oracle_connection = ora_connect();
 // Добавление документа
-if (isset($_POST['add_document'])) {
-    $sql = "INSERT INTO documents (docs_name, docs_type, docs_date, docs_auth) 
+if (($_SERVER['REQUEST_METHOD'] == 'POST') && isset($_POST['add_document'])) {
+    $str = "INSERT INTO documents (docs_name, docs_type, docs_date, docs_auth) 
             VALUES (:name, :doc_type, TO_DATE(:doc_date, 'DD.MM.YY'), :auth)";
-
-    ora_query($sql, array(
-        ':name' => $_POST['name'],
-        ':doc_type' => $_POST['doc_type'],
-        ':doc_date' => $_POST['doc_date'],
-        ':auth' => $_POST['auth']
-    ));
-    ora_query("COMMIT");
-    header("Location: documents.php");
-    exit;
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":name", $_POST['name'], -1);
+    oci_bind_by_name($sql, ":doc_type", $_POST['doc_type'], -1);
+    oci_bind_by_name($sql, ":doc_date", $_POST['doc_date'], -1);
+    oci_bind_by_name($sql, ":auth", $_POST['auth'], -1);
+    oci_execute($sql, OCI_COMMIT_ON_SUCCESS);
 }
 
 // Удаление документа
-if (isset($_GET['delete'])) {
-    $sql = "DELETE FROM documents WHERE docs_id = :id";
-    ora_query($sql, array(':id' => (int) $_GET['delete']));
-    ora_query("COMMIT");
-    header("Location: documents.php");
-    exit;
+if (($_SERVER['REQUEST_METHOD'] == 'GET') && isset($_GET['delete'])) {
+    $str = "DELETE FROM documents WHERE docs_id = :id";
+    $sql = oci_parse($oracle_connection, $str);
+    oci_bind_by_name($sql, ":id", $_GET['delete'], -1);
+    oci_execute($sql, OCI_COMMIT_ON_SUCCESS);
 }
 
 // Получение списка документов
-$sql = "SELECT docs_id, docs_name, docs_type, docs_auth, 
+$str = "SELECT docs_id, docs_name, docs_type, docs_auth, 
                TO_CHAR(docs_date, 'DD.MM.YY') as docs_date 
         FROM documents
 	";
-$stid = ora_query($sql);
-$documents = ora_fetch_all($stid);
+$sql = oci_parse($oracle_connection, $str);
+oci_execute($sql, OCI_DEFAULT);
+ora_disconnect();
 ?>
 
 <html>
@@ -65,7 +66,7 @@ $documents = ora_fetch_all($stid);
             <th>Дата</th>
             <th>Действия</th>
         </tr>
-        <?php foreach ($documents as $document): ?>
+        <?php while ($document = oci_fetch_array($sql, OCI_BOTH)) { ?>
             <tr>
                 <td><?php echo htmlspecialchars($document['DOCS_ID']); ?></td>
                 <td><?php echo htmlspecialchars($document['DOCS_NAME']); ?></td>
@@ -77,7 +78,7 @@ $documents = ora_fetch_all($stid);
                         onclick="return confirm('Удалить документ?')">Удалить</a>
                 </td>
             </tr>
-        <?php endforeach; ?>
+        <?php } ?>
     </table>
 
     <h2>Добавить документ</h2>
@@ -106,7 +107,7 @@ $documents = ora_fetch_all($stid);
         <input type="submit" name="add_document" value="Добавить">
     </form>
     <div class="footer-bumper">
-        Система управления производством © <?php echo date('Y'); ?>
+        Система управления производством © 2025
     </div>
 </body>
 
